@@ -1,0 +1,91 @@
+[versions]
+agp = "8.10.0"
+coreKtx = "1.13.1"
+espressoCore = "3.7.0"
+appcompat = "1.7.1"
+fragmentKtx = "1.8.9"
+kotlinpoet = "1.14.2"
+material = "1.12.0"
+# Android 构建工具版本 (com.android.tools:common)
+androidTools = "31.1.3"
+# Kotlin Gradle 插件版本
+kotlinGradlePlugin = "2.1.21"
+# Kotlin 反射版本
+kotlinReflect = "2.1.21"
+# KSP (Kotlin Symbol Processing) 插件版本
+symbolProcessingApi = "1.9.20-1.0.14"
+symbolProcessingGradlePlugin = "2.1.21-2.0.2"
+
+# --- 📱 应用配置 ---
+# 应用编译 SDK 版本
+appCompileSdk = "35"
+# 应用最小 SDK 版本
+appMinSdk = "24"
+# 应用目标 SDK 版本
+appTargetSdk = "35"
+# 应用当前 JVM 版本号
+appJavaVersion = "VERSION_17"
+# 应用当前 JVM 目标版本号
+appJVMTarget = "JVM_17"
+# 应用当前 JVM 工具链版本
+appJVMtoolchain = "17"
+# APP 版本名称
+appVersionName = "2.7.5"
+# APP 版本号
+appVersionCode = "392"
+
+# LinRouter
+linRoute = "1.2.4"
+linlog = "1.0.0"
+kotlin = "2.1.21"
+coroutines = "1.8.1"
+junit = "4.13.2"
+junitVersion = "1.3.0"
+espressoCoreVersion = "3.7.0"
+
+[libraries]
+# --- 🛠️ 构建工具 / Kotlin / Coroutines ---
+# Android Gradle 插件
+android-tools-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+# Android Gradle 工具通用库
+android-tools-common = { group = "com.android.tools", name = "common", version.ref = "androidTools" }
+# Kotlin Gradle 插件
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlinGradlePlugin" }
+# KSP 插件
+kotlinpoet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinpoet" }
+kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
+symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "symbolProcessingApi" }
+symbol-processing-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "symbolProcessingGradlePlugin" }
+
+# Coroutines
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# LinRouter Libraries
+lin-route-plugin = { group = "com.github.xiwxie.Lin-Router", name = "router-plugin", version.ref = "linRoute" }
+lin-route-api = { group = "com.github.xiwxie.Lin-Router", name = "router-api", version.ref = "linRoute" }
+lin-route-compiler = { group = "com.github.xiwxie.Lin-Router", name = "router-compiler", version.ref = "linRoute" }
+
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCoreVersion" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+# Android Lint 插件
+android-lint = { id = "com.android.lint", version.ref = "agp" }
+# 自定义 Android 库插件
+nowinandroid-android-library = { id = "nowinandroid.android.library" }
+#Android 应用插件 (用于 Application 模块)
+nowinandroid-android-application = { id = "nowinandroid.android.application" }
+nowinandroid-maven-publish = { id = "my.maven.publish" }
+# Kotlin JVM 插件
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlinReflect" }
+lin-route-plugin = { id = "com.lin.router.plugin", version.ref = "linRoute" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "symbolProcessingGradlePlugin" }

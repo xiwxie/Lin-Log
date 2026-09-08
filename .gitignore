@@ -1,0 +1,40 @@
+# Built artifacts
+bin/
+gen/
+out/
+build/
+.gradle/
+.kotlin/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+atlassian-ide-plugin.xml
+captures/
+
+# Keystore / Secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+google-services.json
+secrets.properties
+local.properties
+
+# OS generated files
+.DS_Store
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# Log files
+*.log
+
+# Unit test reports
+**/build/reports/tests/
+
+# Android App Bundle
+*.aab

@@ -1,0 +1,69 @@
+# ==========================================
+# Gemini CLI 隐私保护屏蔽规则 (LinRouter)
+# ==========================================
+
+# 1. 屏蔽签名与密钥文件 (极其重要)
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+google-services.json
+*(S|s)ecret*
+secrets.properties
+credentials.json
+
+# 2. 屏蔽本地配置与环境变量
+local.properties
+.env*
+gradle.properties
+# ------------------------------------------
+# 3. 敏感词模糊匹配 (文件名包含以下词汇将被完全屏蔽)
+# ------------------------------------------
+**/*Url*
+**/*URL*
+**/*Endpoint*
+**/*Host*
+**/*Domain*
+**/*Secret*
+**/*Token*
+**/*Key*
+**/*Auth*
+**/*Credential*
+**/*Password*
+**/*Config*
+**/*Constant*
+*BuildConfig*
+
+# 4. 目录级深度屏蔽
+**/network/**
+**/api/**
+**/http/**
+**/retrofit/**
+**/okhttp/**
+
+# 5. 屏蔽 IDE 内部配置文件
+.idea/
+.kotlin/
+*.iml
+*.iws
+.project
+.settings/
+
+
+# 3. 屏蔽构建产物 (减少无意义的上下文占用)
+build/
+bin/
+gen/
+.gradle/
+*.apk
+*.aar
+*.jar
+
+# 4. 屏蔽 Git 内部数据
+.git/
+.gitignore
+
+# 5. 屏蔽日志与捕获
+capture/
+*.log
