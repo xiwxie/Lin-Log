@@ -182,8 +182,10 @@ class LinLogAnalyzer:
                     level_map = {"I": "INFO", "D": "DEBUG", "W": "WARN", "E": "ERROR", "V": "VERBOSE"}
                     level_norm = level_map.get(level, level)
 
+                    event_domain = self._resolve_virtual_domain(domain, os.path.basename(file_path), tag, msg)
+
                     event = {
-                        "domain": domain,
+                        "domain": event_domain,
                         "timestamp_str": time_str,
                         "level": level_norm,
                         "thread": thread,
@@ -194,21 +196,68 @@ class LinLogAnalyzer:
                         "has_stacktrace": False
                     }
 
-                    self._enrich_and_categorize(domain, event)
+                    self._enrich_and_categorize(event_domain, event)
                     self.timeline_events.append(event)
                     last_event = event
 
-                    self.domain_summary[domain]["count"] += 1
+                    self.domain_summary[event_domain]["count"] += 1
                     if level_norm in ("WARN", "W"):
-                        self.domain_summary[domain]["warnings"] += 1
+                        self.domain_summary[event_domain]["warnings"] += 1
                     elif level_norm in ("ERROR", "E"):
-                        self.domain_summary[domain]["errors"] += 1
+                        self.domain_summary[event_domain]["errors"] += 1
                         self.exceptions.append(event)
                     elif "Exception" in msg or "Fatal" in msg or "Crash" in msg:
                         self.exceptions.append(event)
 
         except Exception as e:
             sys.stderr.write(f"解析文件出错 {file_path}: {e}\n")
+
+    def _resolve_virtual_domain(self, physical_domain: str, filename: str, tag: str, msg: str) -> str:
+        """三级弹性嗅探虚拟领域 (Virtual Domain Sniffing):
+        1. 优先读取明确的物理子目录 (非 '.', 'main', 'debug', 'release', 'linlog' 等泛容器)；
+        2. 识别文件名特征 (如 network_*.linlog, apm.txt)；
+        3. 识别日志 Tag 特征 (如 NetworkLayer, ApmMonitor, WebSocket)；
+        4. 识别日志内容关键特征 (耗时指标、FPS 指标、Socket 状态)；
+        5. 兜底归类为 main。
+        """
+        pd = physical_domain.strip("/\\").lower()
+        if pd and pd not in (".", "main", "debug", "release", "linlog", "log"):
+            last_sub = os.path.basename(pd)
+            if last_sub:
+                return last_sub
+
+        fn = filename.lower()
+        if any(k in fn for k in ("network", "http", "api")):
+            return "network"
+        if any(k in fn for k in ("socket", "websocket", "tcp", "im")):
+            return "socket"
+        if any(k in fn for k in ("apm", "perf", "jank", "fps", "memory")):
+            return "apm"
+        if any(k in fn for k in ("track", "behavior", "event", "click")):
+            return "track"
+        if any(k in fn for k in ("pay", "billing", "iap")):
+            return "payment"
+
+        tl = tag.lower()
+        if any(k in tl for k in ("net", "http", "api", "okhttp", "retrofit")):
+            return "network"
+        if any(k in tl for k in ("socket", "websocket", "channel", "imclient")):
+            return "socket"
+        if any(k in tl for k in ("apm", "perf", "jank", "fps", "memory", "cpu")):
+            return "apm"
+        if any(k in tl for k in ("track", "event", "usertrack", "page")):
+            return "track"
+        if any(k in tl for k in ("pay", "billing", "iap", "cashier")):
+            return "payment"
+
+        if LATENCY_PATTERN.search(msg):
+            return "network"
+        if FPS_PATTERN.search(msg) or SYSTEM_MEM_PATTERN.search(msg) or JVM_MEM_PATTERN.search(msg):
+            return "apm"
+        if SOCKET_STATE_PATTERN.search(msg):
+            return "socket"
+
+        return "main"
 
     def _enrich_and_categorize(self, domain: str, event: dict):
         msg = event["msg"]
@@ -314,6 +363,38 @@ class LinLogAnalyzer:
         jvm_mem_usages = [e["jvm_mem_used_mb"] for e in self.apm_memory_events if "jvm_mem_used_mb" in e]
         sys_mem_avails = [e["sys_mem_avail_mb"] for e in self.apm_memory_events if "sys_mem_avail_mb" in e]
 
+        # 面向非技术测试/运营人员的大白话健康度与责任归属定性
+        non_tech_summary = {
+            "health_level": "🟢 运行健康平稳",
+            "headline": "日志健康度良好，未发现严重异常、崩溃堆栈或阻塞性故障。",
+            "responsibility": "【暂无事故责任】客户端与网络通信平稳",
+            "action_advice_ops": "无需人工介入或业务补发，属于正常用户行为。",
+            "action_advice_qa": "常规回归验证即可。"
+        }
+
+        if self.exceptions:
+            exc_first = self.exceptions[0]
+            first_err_line = exc_first['msg'].strip().split('\n')[0]
+            non_tech_summary["health_level"] = "🔴 严重异常 / 崩溃闪退"
+            non_tech_summary["headline"] = f"检测到 {len(self.exceptions)} 处未捕获异常或崩溃堆栈（首发异常 Tag=[{exc_first['tag']}]，错误: {first_err_line[:80]}），极可能引发 App 闪退或界面卡死退出。"
+            non_tech_summary["responsibility"] = "【前端 App 缺陷】发生代码级未捕获异常，需研发介入定位修复"
+            non_tech_summary["action_advice_ops"] = "密切关注是否有同类用户投诉；若已闪退可引导用户重启 App 或升级版本。"
+            non_tech_summary["action_advice_qa"] = f"根据首发异常 Tag [{exc_first['tag']}] 对应的前后用户操作链路组织复现用例。"
+        elif self.slow_network_events or self.apm_jank_events:
+            non_tech_summary["health_level"] = "🟠 亚健康 / 存在体验瓶颈 (卡顿或网络慢)"
+            details = []
+            if self.slow_network_events:
+                details.append(f"{len(self.slow_network_events)} 次接口耗时 > 800ms")
+            if self.apm_jank_events:
+                details.append(f"{len(self.apm_jank_events)} 次严重丢帧(FPS < 30)")
+            non_tech_summary["headline"] = f"检测到客户端运行存在体验瓶颈（{'，'.join(details)}），可能导致用户感知转圈、交互迟钝或轻微掉帧。"
+            if len(self.slow_network_events) >= len(self.apm_jank_events):
+                non_tech_summary["responsibility"] = "【后端服务高延迟 / 用户弱网】接口响应缓慢引发转圈等待"
+            else:
+                non_tech_summary["responsibility"] = "【前端主线程耗时 / 设备负载高】主线程计算量大或内存紧张引发掉帧"
+            non_tech_summary["action_advice_ops"] = "若有用户反馈转圈等待，可引导用户切换稳定的 Wi-Fi / 5G 网络后重试。"
+            non_tech_summary["action_advice_qa"] = "建议在网络限速代理 (Network Link Conditioner) 与低端机上进行压力复测。"
+
         return {
             "summary": {
                 "total_events": len(self.timeline_events),
@@ -326,6 +407,7 @@ class LinLogAnalyzer:
                 "jvm_mem_max_mb": max(jvm_mem_usages) if jvm_mem_usages else None,
                 "sys_mem_min_avail_mb": min(sys_mem_avails) if sys_mem_avails else None,
             },
+            "non_tech_summary": non_tech_summary,
             "query": self.query,
             "query_matches_count": len(self.query_matched_events),
             "domain_statistics": dict(self.domain_summary),
@@ -338,8 +420,19 @@ class LinLogAnalyzer:
 
     def generate_markdown(self, data: dict) -> str:
         s = data["summary"]
+        nt = data.get("non_tech_summary", {})
         md = []
         md.append("# 🩺 LinLog 智能日志体检与诊断报告\n")
+
+        # 0. 置顶：面向测试/运营等非技术人员的速读卡片
+        if nt:
+            md.append("## 🟢 【测试 / 运营速读卡片】")
+            md.append(f"- **📢 运行体检状态**: `{nt.get('health_level', '未知')}`")
+            md.append(f"- **🔍 核心事故定性**: {nt.get('headline', '')}")
+            md.append(f"- **🎯 责任归属判定**: **{nt.get('responsibility', '')}**")
+            md.append(f"- **💡 运营处置建议**: {nt.get('action_advice_ops', '')}")
+            md.append(f"- **💡 测试复测指引**: {nt.get('action_advice_qa', '')}\n")
+            md.append("---\n")
 
         # 1. 问答针对性诊断 (如果带了提问)
         if data.get("query"):

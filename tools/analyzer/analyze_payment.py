@@ -63,7 +63,9 @@ class PaymentLogAnalyzer:
         self.google_connection_events = []
         self.google_history_events = []
         self.google_orders = defaultdict(lambda: {
+            "biz_order_id": "",
             "hex_order_number": "",
+            "account_id": "",
             "hex_account_id": "",
             "google_order_id": "",
             "product_id": "",
@@ -81,6 +83,7 @@ class PaymentLogAnalyzer:
         # 华为 IAP 相关数据
         self.huawei_pay_events = []
         self.huawei_orders = defaultdict(lambda: {
+            "biz_order_id": "",
             "hex_order_number": "",
             "huawei_order_id": "",
             "product_id": "",
@@ -255,8 +258,8 @@ class PaymentLogAnalyzer:
             try:
                 payload = json.loads(json_match.group(1))
                 stage = payload.get("stage", "UNKNOWN")
-                order_num = payload.get("hex_order_number") or payload.get("business_order_id")
-                acc_id = payload.get("hex_account_id") or payload.get("profile_id")
+                order_num = payload.get("biz_order_id") or payload.get("order_id") or payload.get("order_number") or payload.get("business_order_id") or payload.get("hex_order_number")
+                acc_id = payload.get("account_id") or payload.get("user_id") or payload.get("profile_id") or payload.get("hex_account_id")
                 google_oid = payload.get("google_order_id")
                 prod_id = payload.get("product_id")
                 token = payload.get("purchase_token")
@@ -268,8 +271,10 @@ class PaymentLogAnalyzer:
 
                 order = self.google_orders[session_key]
                 if order_num:
+                    order["biz_order_id"] = order_num
                     order["hex_order_number"] = order_num
                 if acc_id:
+                    order["account_id"] = acc_id
                     order["hex_account_id"] = acc_id
                 if google_oid:
                     order["google_order_id"] = google_oid
@@ -321,7 +326,7 @@ class PaymentLogAnalyzer:
             try:
                 payload = json.loads(json_match.group(1))
                 stage = payload.get("stage", "UNKNOWN")
-                order_num = payload.get("hex_order_number") or payload.get("orderNumber")
+                order_num = payload.get("biz_order_id") or payload.get("order_id") or payload.get("order_number") or payload.get("business_order_id") or payload.get("hex_order_number") or payload.get("orderNumber")
                 hw_oid = payload.get("huawei_order_id") or payload.get("huaweiOrderId")
                 prod_id = payload.get("product_id") or payload.get("productId")
                 token = payload.get("purchase_token") or payload.get("purchaseToken")
@@ -331,6 +336,7 @@ class PaymentLogAnalyzer:
                 oid = order_num or hw_oid or f"hw_{ts}"
                 hw_order = self.huawei_orders[oid]
                 if order_num:
+                    hw_order["biz_order_id"] = order_num
                     hw_order["hex_order_number"] = order_num
                 if hw_oid:
                     hw_order["huawei_order_id"] = hw_oid
@@ -420,6 +426,29 @@ class PaymentLogAnalyzer:
         md = []
         md.append("# 💳 LinLog 支付专属深度诊断与全链路对账报告\n")
 
+        # 0. 置顶：面向运营/客服/测试的速览卡片
+        total_orders = len(self.google_orders) + len(self.huawei_orders)
+        dropped_orders = []
+        for k, o in self.google_orders.items():
+            if o.get("has_error") or o.get("is_acknowledged") is False or (o.get("status") == "SUCCESS" and not o.get("is_consumed")):
+                dropped_orders.append(o.get("biz_order_id") or o.get("hex_order_number") or k)
+        for k, o in self.huawei_orders.items():
+            if o.get("has_error") or (o.get("is_reported") and not o.get("is_consumed")):
+                dropped_orders.append(o.get("biz_order_id") or o.get("hex_order_number") or k)
+
+        md.append("## 🟢 【对账运营 / 测试速览卡片】")
+        if dropped_orders:
+            md.append(f"- **📢 对账定性**: ⚠️ 发现 `{len(dropped_orders)}` 笔异常/掉单单据（如 `{dropped_orders[0]}`），需人工关注或补发。")
+            md.append(f"- **🎯 责任归属判定**: **【客户端发货/确认中断或三方验签异常】**")
+            md.append(f"- **💡 运营行动指令**: 请核对下表中的渠道流水号，若用户扣款成功但发货未成功，请在运营后台执行人工补单。")
+            md.append(f"- **💡 测试复测建议**: 重点针对掉单订单对应支付阶段（未确认/未消耗）进行弱网与进程被杀复测。")
+        else:
+            md.append(f"- **📢 对账定性**: 🟢 扫描到 `{total_orders}` 笔订单，支付链路闭环正常，未见资金掉单风险。")
+            md.append(f"- **🎯 责任归属判定**: **【暂无异常责任】** 交易状态正常")
+            md.append(f"- **💡 运营行动指令**: 账单状态平稳，无需人工补发。")
+            md.append(f"- **💡 测试复测建议**: 常规支付冒烟验证即可。")
+        md.append("\n---\n")
+
         # 1. 渠道嗅探概览
         channels_str = "、".join(self.detected_channels) if self.detected_channels else "未明确识别到已知支付渠道"
         md.append("## 一、支付渠道嗅探概览")
@@ -436,11 +465,11 @@ class PaymentLogAnalyzer:
             # 2.1 订单明细大表
             if self.google_orders:
                 md.append("### 📋 订单全链路生命周期对账表")
-                md.append("| 自研订单号 (hex) | 商品规格 | Google流水号 | 最终状态 | 确认(Ack) | 消耗(Consume) | 诊断判定 |")
+                md.append("| 业务订单号 | 商品规格 | Google流水号 | 最终状态 | 确认(Ack) | 消耗(Consume) | 诊断判定 |")
                 md.append("| :--- | :--- | :--- | :---: | :---: | :---: | :--- |")
                 for k, order in self.google_orders.items():
-                    b_id = order['hex_order_number'] or k
-                    p_id = order['hex_account_id'] or order['product_id'] or "-"
+                    b_id = order.get('biz_order_id') or order.get('hex_order_number') or k
+                    p_id = order.get('account_id') or order.get('hex_account_id') or order.get('product_id') or "-"
                     g_id = order['google_order_id'] or "-"
                     status = order['status']
                     ack_str = "✅ 是" if order['is_acknowledged'] else "❌ 否"
@@ -484,10 +513,10 @@ class PaymentLogAnalyzer:
             md.append(f"- **华为支付相关事件**: `{len(self.huawei_pay_events)}` 条\n")
             if self.huawei_orders:
                 md.append("### 📋 华为订单全链路生命周期对账表")
-                md.append("| 自研订单号 (hex) | 商品规格 | 华为流水号 | 最终状态 | 服务端发货 | 商品消耗 | 诊断判定 |")
+                md.append("| 业务订单号 | 商品规格 | 华为流水号 | 最终状态 | 服务端发货 | 商品消耗 | 诊断判定 |")
                 md.append("| :--- | :--- | :--- | :---: | :---: | :---: | :--- |")
                 for oid, ho in self.huawei_orders.items():
-                    b_id = ho.get('hex_order_number') or oid
+                    b_id = ho.get('biz_order_id') or ho.get('hex_order_number') or oid
                     p_id = ho.get('product_id') or "-"
                     hw_id = ho.get('huawei_order_id') or "-"
                     status = ho.get('status', 'UNKNOWN')
@@ -499,7 +528,7 @@ class PaymentLogAnalyzer:
 
                 md.append("### 🔍 华为订单时序推进详细证据链")
                 for oid, ho in self.huawei_orders.items():
-                    b_id = ho.get('hex_order_number') or oid
+                    b_id = ho.get('biz_order_id') or ho.get('hex_order_number') or oid
                     md.append(f"#### 订单: `{b_id}` (商品: `{ho.get('product_id', '-')}`)")
                     if ho.get("risk_warning"):
                         md.append(f"> **诊断结论**: {ho['risk_warning']}")

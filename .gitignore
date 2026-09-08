@@ -1,40 +1,94 @@
-# Built artifacts
+# ==============================================================================
+# LinLog 基础设施与全栈工程 .gitignore 规范
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. 构建产物与 Gradle 缓存 (Build & Gradle Artifacts)
+# ------------------------------------------------------------------------------
+.gradle/
+build/
+**/build/
 bin/
 gen/
 out/
-build/
-.gradle/
-.kotlin/
 
-# Android Studio / IntelliJ
+# 二进制文件与产物包 (显式保留 Gradle Wrapper Jar)
+*.apk
+*.ap_
+*.aab
+*.aar
+*.dex
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+!build-logic/gradle/wrapper/gradle-wrapper.jar
+
+# ------------------------------------------------------------------------------
+# 2. Kotlin 编译器与 KSP 缓存 (Kotlin & KSP Artifacts)
+# ------------------------------------------------------------------------------
+.kotlin/
+.kotlin-daemon/
+
+# ------------------------------------------------------------------------------
+# 3. Android Studio / IntelliJ IDEA 工作区
+# ------------------------------------------------------------------------------
 .idea/
 *.iml
 *.iws
 *.ipr
-atlassian-ide-plugin.xml
 captures/
+.externalNativeBuild/
+.cxx/
+.navigation/
+atlassian-ide-plugin.xml
 
-# Keystore / Secrets
+# ------------------------------------------------------------------------------
+# 4. 本地环境、签名与敏感密钥 (Security & Environment)
+# ------------------------------------------------------------------------------
+local.properties
+secrets.properties
 *.jks
 *.keystore
 *.p12
 *.pem
+*.key
 google-services.json
-secrets.properties
-local.properties
 
-# OS generated files
+# ------------------------------------------------------------------------------
+# 5. 操作系统垃圾文件 (OS Generated)
+# ------------------------------------------------------------------------------
 .DS_Store
 .DS_Store?
-ehthumbs.db
+._*
 Icon?
 Thumbs.db
+ehthumbs.db
 
-# Log files
+# ------------------------------------------------------------------------------
+# 6. 日志基础设施测试与运行时临时文件 (LinLog Runtime & Test Artifacts)
+# ------------------------------------------------------------------------------
 *.log
+*.linlog
+*.xlog
+linlog_upload_cache/
+linlog_upload_*.zip
+log_summary.md
+log_metric.json
 
-# Unit test reports
-**/build/reports/tests/
+# ------------------------------------------------------------------------------
+# 7. Python 分析工具缓存 (tools/analyzer/ Cache)
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
 
-# Android App Bundle
-*.aab
+# ------------------------------------------------------------------------------
+# 8. AI 智能体与本地临时环境 (Agent Customizations & Scratch)
+# ------------------------------------------------------------------------------
+.antigravity/
+.agents/scratch/
+scratch/

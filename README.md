@@ -310,12 +310,37 @@ class ServerTimeInterceptor : Interceptor {
 
 ---
 
-## 六、AI 智能日志诊断与分析工具 (`analyzer/`)
+## 六、AI Agent 智能体诊断生态与外行人员导入指引
 
-组件内置了针对多领域日志的跨时序因果分析工具，可与主流大模型协同秒级定位根因：
+`LinLog` 内建了 AI-Native 智能体能力。无论你是**开发、测试、运营还是产品**，都不需要手动翻阅海量日志，直接交由 AI 产出大白话结论。
 
+### 1. 📢 测试 / 运营 / 外行人员如何使用？（0 命令行门槛）
+如果你使用的是支持 Agent 的 AI 工具（如 Google Antigravity、Cursor、Windsurf 等）：
+1. **打开项目**：在 AI 工具中直接打开本项目（或接入了本套 Agent 的工程）；
+2. **直接提问**：将日志文件路径（或直接将 `.zip` 拖入对话框），用普通自然语言提问即可：
+   > “帮我分析这个日志：`/Users/xxx/Downloads/log_20260908.zip`，用户反馈充值了 6 元没到账，请告诉我谁的责任，需要给用户补发吗？”
+3. **AI 自动响应**：AI 会在后台自动调用诊断引擎，并直接在顶部输出**【测试 / 运营速读卡片】**（纯大白话定性、责任归属判定、用户行为还原、运营补单指引）。
+
+---
+
+### 2. 📦 如何将这套 Agent 导入到你自己的业务项目中？
+如果你想在公司的实际业务 App（如电商、直播、游戏仓库）中使用这套日志排查 Agent，只需极简两步：
+1. **拷贝配置**：将本仓库根目录下的：
+   - `AGENTS.md`（项目智能体总纲）
+   - `.agents/skills/`（智能体技能目录：包含 `linlog-analyzer` 与 `payment-analyzer`）
+   - `tools/analyzer/`（轻量 Python 诊断脚本，Mac 自带环境，无需安装任何复杂依赖）  
+   直接复制到你的业务工程根目录下；
+2. **提交 Git**：将上述文件随项目一同提交至 Git，所有团队成员（包括测试与运营）拉取代码后均可即插即用。
+
+---
+
+### 3. 💻 终端独立运行（备用）
+如果你习惯命令行或在 CI/CD 流水线中消费：
 ```bash
-# 直接对导出的 Zip 压缩包执行因果推导分析
-python3 core/linlog/analyzer/analyze_log.py /path/to/log_xxx.zip
+# 通用多领域日志体检
+python3 tools/analyzer/analyze_log.py /path/to/log_xxx.zip
+
+# 支付与掉单专项对账
+python3 tools/analyzer/analyze_payment.py /path/to/log_xxx.zip
 ```
-详细使用技巧与 Prompt 模板请参见 [LinLog Analyzer 指南](analyzer/README.md)。
+详细技巧与 Prompt 模板请参见 [LinLog Analyzer 深度指南](tools/analyzer/README.md)。
