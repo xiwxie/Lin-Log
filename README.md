@@ -54,34 +54,39 @@
 
 ```mermaid
 graph TD
-    subgraph 业务调用层 (通用解耦 / 业务扩展)
-        A[主业务日志: LinLog.i / d / w / e]
-        B[业务专属门面: LinLog.pay / LinLog.apm]
-        C[通用索引操作符: LinLog['live']]
-        D[通用属性委托: by LinLog.domain]
-        E[高频UI调试: LinLog.console.d]
+    subgraph S1 ["业务调用层 (通用解耦 / 业务扩展)"]
+        A["主业务日志: LinLog.i / d / w / e"]
+        B["业务专属门面: LinLog.pay / LinLog.apm"]
+        C["通用索引操作符: LinLog['live']"]
+        D["通用属性委托: by LinLog.domain"]
+        E["高频UI调试: LinLog.console.d"]
     end
 
-    subgraph 顶层门面与早鸟物理预写
-        A & B & C & D & E --> F{LinLog 顶层门面}
-        F -->|未初始化阶段| G[EarlyBirdSpooler: 物理预写卷 spool_*.eblog]
-        G -->|init / register 完成| H[三态原子交接: 物理合并流转至正式目录]
-        F -->|已初始化阶段| I[管道分发 Configuration.printers]
+    subgraph S2 ["顶层门面与早鸟物理预写"]
+        A --> F{"LinLog 顶层门面"}
+        B --> F
+        C --> F
+        D --> F
+        E --> F
+        F -->|未初始化阶段| G["EarlyBirdSpooler: 物理预写卷 spool_*.eblog"]
+        G -->|init / register 完成| H["三态原子交接: 物理合并流转至正式目录"]
+        F -->|已初始化阶段| I["管道分发 Configuration.printers"]
         H --> I
     end
 
-    subgraph 线程调度治理 (双模架构)
-        I -->|常规业务领域: isolateThread = false| J[LinLogDispatcher: 全局单线程受管调度器]
-        I -->|超高频APM/关键支付: isolateThread = true| K[DedicatedExecutor: 专属独立线程]
+    subgraph S3 ["线程调度治理 (双模架构)"]
+        I -->|常规业务领域: isolateThread = false| J["LinLogDispatcher: 全局单线程受管调度器"]
+        I -->|超高频APM/关键支付: isolateThread = true| K["DedicatedExecutor: 专属独立线程"]
     end
 
-    subgraph 物理落盘与自愈管道
-        J & K --> L[AsyncFilePrinter: 批量聚合 64条/批]
-        L --> M[物理存活性感知: rm -rf 缺失自愈重建]
-        L --> N[精准 UTF-8 字节累加 + 2MB 自动切分]
-        N --> O[SafeLogCleaner: 单调时钟 + 30MB FIFO 水位淘汰]
-        N --> P[LogExporter: exportScope 冷热隔离打包 Zip]
-        P --> Q[(服务端上传 / finally 自动回收)]
+    subgraph S4 ["物理落盘与自愈管道"]
+        J --> L["AsyncFilePrinter: 批量聚合 64条/批"]
+        K --> L
+        L --> M["物理存活性感知: rm -rf 缺失自愈重建"]
+        L --> N["精准 UTF-8 字节累加 + 2MB 自动切分"]
+        N --> O["SafeLogCleaner: 单调时钟 + 30MB FIFO 水位淘汰"]
+        N --> P["LogExporter: exportScope 冷热隔离打包 Zip"]
+        P --> Q[("(服务端上传 / finally 自动回收)")]
     end
 ```
 
